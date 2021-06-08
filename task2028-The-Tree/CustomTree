@@ -1,0 +1,215 @@
+package com.javarush.task.task20.task2028;
+
+import java.io.Serializable;
+import java.util.*;
+
+/*
+Построй дерево(1)
+*/
+
+public class CustomTree extends AbstractList<String> implements Cloneable, Serializable {
+
+    Entry<String> root;
+
+    List<Entry<String>> entries = new ArrayList<>();
+
+    public CustomTree() {
+        this.root = new Entry<>("doesn't matter");
+        //size = 0;
+        entries.add(this.root);
+
+    }
+
+    @Override
+    public String get(int index) {
+        throw new UnsupportedOperationException();
+        //return null;
+    }
+
+    @Override
+    public int size() {
+        return entries.size() - 1;
+    }
+
+    @Override
+    public String set(int index, String element) {
+        throw new UnsupportedOperationException();
+
+    }
+
+    @Override
+    public void add(int index, String element) {
+        throw new UnsupportedOperationException();
+
+    }
+
+    @Override
+    public String remove(int index) {
+        throw new UnsupportedOperationException();
+
+    }
+
+    @Override
+    public boolean addAll(int index, Collection<? extends String> c) {
+        throw new UnsupportedOperationException();
+
+    }
+
+    @Override
+    public List<String> subList(int fromIndex, int toIndex) {
+        throw new UnsupportedOperationException();
+
+    }
+
+    @Override
+    protected void removeRange(int fromIndex, int toIndex) {
+        throw new UnsupportedOperationException();
+
+    }
+
+    @Override
+    public boolean add(String s) {
+        Entry<String> newEntry = new Entry<>(s);
+        Entry<String> temp;
+
+        for (int i = 0; i < entries.size(); i++) {
+            temp = entries.get(i);
+            if (temp.isAvailableToAddChildren()) {
+                if (temp.availableToAddLeftChildren) {
+                    entries.add(newEntry);
+                    temp.leftChild = newEntry;
+                    newEntry.parent = temp;
+                    newEntry.isLeft = true;
+                    temp.availableToAddLeftChildren = false;
+                    return true;
+
+                } else if (temp.availableToAddRightChildren) {
+                    entries.add(newEntry);
+                    temp.rightChild = newEntry;
+                    newEntry.parent = temp;
+                    newEntry.isRight = true;
+                    temp.availableToAddRightChildren = false;
+                    return true;
+                }
+            }//end if
+
+        }//end for
+        // нет меcта
+
+        for (int i = 1; i < entries.size(); i++) {
+            temp = entries.get(i);
+            if(temp.leftChild == null && !temp.availableToAddLeftChildren){
+                temp.availableToAddLeftChildren = true;
+                return add(s);
+
+            }
+            else if(temp.rightChild == null && !temp.availableToAddRightChildren){
+                temp.availableToAddRightChildren = true;
+                add(s);
+                return add(s);
+            }
+        }
+
+        return false;
+    }// end add
+
+
+
+    public String getParent(String s) {
+        String parentName = "";
+        for (Entry<String> e : entries) {
+            if (s.equals(e.elementName)) {
+                parentName = e.parent.elementName;
+                return parentName;
+            }
+        }
+
+        return null;
+    }
+
+    public boolean remove(Object o) {
+        String currentName;
+        try {
+            currentName = (String) o;
+        } catch (Exception e) {
+            throw new UnsupportedOperationException();
+        }
+        Entry<String> current = getEntryByName(currentName), parent;
+        parent = getEntryByName(getParent(currentName));
+        if(current.isLeft) parent.leftChild = null;
+        if(current.isRight) parent.rightChild = null;
+        removeChilds(current);
+        entries.remove(current);
+        return true;
+    }//end remove()
+
+    public void removeChilds(Entry<String> current) {
+        if (current.leftChild != null) {
+            removeChilds(current.leftChild);
+            entries.remove(current.leftChild);
+        }
+        if (current.rightChild != null) {
+            removeChilds(current.rightChild);
+            entries.remove(current.rightChild);
+        }
+
+    } //end removeChilds
+
+    public Entry<String> getEntryByName(String name) {
+        Entry<String> temp = null;
+        for (int i = 0; i < entries.size(); i++) {
+            temp = entries.get(i);
+            if (temp.elementName.equals(name))
+                return temp;
+        }
+        return temp;
+    }//end getEntryByName()
+
+    static class Entry<T> implements Serializable {
+        String elementName;
+        boolean availableToAddLeftChildren, availableToAddRightChildren,
+                isLeft = false, isRight = false;
+        Entry<T> parent, leftChild, rightChild;
+        static int counter = 0;
+        int number;
+
+        public Entry(String elementName) {
+            this.elementName = elementName;
+            this.availableToAddLeftChildren = true;
+            this.availableToAddRightChildren = true;
+            this.number = counter++;
+        }
+
+        boolean isAvailableToAddChildren() {
+            return availableToAddLeftChildren || availableToAddRightChildren;
+        }
+
+        public int getNumber() {
+            return number;
+        }
+
+        public Entry<T> getEntryByName(String name) {
+            if (this.elementName.equals(name)) return this;
+            return null;
+        }
+    }
+}
+/*
+Необходимо написать методы, которые бы позволили создать такую структуру дерева и проводить операции над ней.
+
+Тебе необходимо:
+1) переопределить метод add(String s) - добавляет элементы дерева,
+    в качестве параметра принимает имя элемента (elementName), искать место для вставки начинаем слева направо.
+2) переопределить метод size() - возвращает текущее количество элементов в дереве.
+3) реализовать метод getParent(String s) - возвращает имя родителя элемента дерева,
+    имя которого было полученного в качестве параметра.
+
+Если необходимо, можешь вводить дополнительные методы и поля, не указанные в задании.
+
+
+Requirements:
+1. В классе CustomTree должно существовать поле root типа Entry.
+2. В классе CustomTree должны быть переопределены методы add(String s) и size().
+3. После добавления N элементов в дерево с помощью метода add, метод size должен возвращать N.
+4. Метод getParent должен возвращать имя родителя для любого элемента дерева.
+ */
