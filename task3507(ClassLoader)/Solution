@@ -1,0 +1,141 @@
+package com.javarush.task.task35.task3507;
+
+import java.io.*;
+import java.lang.reflect.Constructor;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashSet;
+import java.util.Set;
+
+/*
+ClassLoader - что это такое?
+*/
+
+public class Solution {
+    public static void main(String[] args) throws IOException {
+        Set<? extends Animal> allAnimals = getAllAnimals(Solution.class.getProtectionDomain().getCodeSource().getLocation().getPath() + Solution.class.getPackage().getName().replaceAll("[.]", "/") + "/data");
+
+        for (Animal a : allAnimals) {
+            System.out.println(a.getClass().getSimpleName());
+        }
+        //System.out.println(allAnimals);
+    }
+    // main logic method
+    public static Set<? extends Animal> getAllAnimals(String pathToAnimals) throws IOException {
+        Set<Animal> result = new HashSet<>();// result set to return
+
+        // preparation of parent directory path format and create effectively final String
+        if (!pathToAnimals.endsWith("\\") && !pathToAnimals.endsWith("/"))
+            pathToAnimals = pathToAnimals + "/";
+        pathToAnimals = pathToAnimals.replaceFirst("/", "");
+        String finalPathToAnimals = pathToAnimals;
+
+        // starting to walk through parent directory
+        Files.walkFileTree(Paths.get(finalPathToAnimals), new SimpleFileVisitor<Path>() {
+            // actions for each file inside parent directory
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                // check if file is directory, if true -> skip it
+                if(Files.isDirectory(file)) return FileVisitResult.CONTINUE;
+
+                // create new own ClassLoader and Override only one method -> findClass(...)
+                ClassLoader loader = new ClassLoader() {
+                    @Override
+                    protected Class<?> findClass(String name) throws ClassNotFoundException {
+                        // read target className.class inside parent dir to byte array
+                        byte[] bytes = readClassFileToBytes(file.toString());
+                        // call private ClassLoader method defineClass(...) it should return Class<?> link
+                        return defineClass(null, bytes, 0, bytes.length);
+                    }
+                };
+                //create short class name - equivalent Class.getClass().getSimpleName()
+                String className = file.getFileName().toString().split(".class")[0];
+
+                // create return link for target Class
+                Class clazz = null;
+
+                // couple of flags to check task conditions
+                boolean hasInterface = false;
+                boolean hasConstructor = false;
+
+                // here the magic is starting
+                try {
+                    // this command should call findClass(...) which was overridden earlier
+                    clazz = loader.loadClass(className);
+
+                    // reflectively check if our clazz implements Animal interface.
+                    // if true -> hasInterface flag = true
+                    for (Class cl : clazz.getInterfaces()) {
+                        if (Animal.class == cl) {
+                            hasInterface = true;
+                        }
+                    }
+
+                    // reflectively check if our clazz has a public constructor without any parameters.
+                    // if true -> hasConstructor flag = true
+                    for (Constructor c : clazz.getConstructors()) {
+                        if (c.getParameterTypes().length == 0) {
+                            hasConstructor = true;
+                        }
+                    }
+
+                    // move to the next file if any of our flag == false
+                    if (!hasConstructor || !hasInterface) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    // if all flags are true -> add a new object of clazz Class to the result set
+                    result.add((Animal) clazz.newInstance());
+
+                    // if there will appear any of Exceptions marked below -> print stack trace and
+                    // move to the next file
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
+                    return FileVisitResult.CONTINUE;
+                } catch (InstantiationException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                    return FileVisitResult.CONTINUE;
+                }
+
+                // move to the next file
+                return FileVisitResult.CONTINUE;
+            }
+
+            // override preVisitDirector() to ensure that we are walking only inside parent directory but NOT DEEPER
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs){
+                // if file is our parent directory -> move inside it
+                if(Paths.get(finalPathToAnimals).equals(dir))
+                    return FileVisitResult.CONTINUE;
+
+                // if file is NOT our parent directory -> skip it
+                return FileVisitResult.SKIP_SUBTREE;
+            }
+
+        });
+
+        // return result set
+        return result;
+
+    }
+
+    // util method to read file to byte array
+    private static byte[] readClassFileToBytes(String path) {
+        // prepare format of path to file with target class
+        path = path.replaceFirst("/", "");
+
+        // read target file to byte array and return it
+        byte[] bytes = null;
+        try {
+            bytes = Files.readAllBytes(Paths.get(path));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return bytes;
+
+
+    }
+}
