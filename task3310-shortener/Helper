@@ -1,0 +1,18 @@
+package com.javarush.task.task33.task3310;
+
+import java.math.BigInteger;
+import java.security.SecureRandom;
+
+public class Helper {
+
+    // который будет генерировать случайную строку
+    // Строка может состоять из цифр и любой из 26 маленьких букв английского алфавита
+    public static String generateRandomString() {
+        SecureRandom random = new SecureRandom();
+        return new BigInteger(130, random).toString(36);
+    }
+
+    public static void printMessage(String message){
+        System.out.println(message);
+    }
+}
